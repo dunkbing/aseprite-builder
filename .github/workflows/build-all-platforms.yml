@@ -57,11 +57,7 @@ jobs:
         run: |
           Invoke-WebRequest -Uri "https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Windows-Release-x64.zip" -OutFile "skia.zip" -UseBasicParsing
           Expand-Archive -Force "skia.zip" "skia"
-          
-          # Download icudtl.dat (required for ICU support)
-          mkdir skia\out\Release-x64 -Force
-          Invoke-WebRequest -Uri "https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/icudtl.dat" -OutFile "skia/out/Release-x64/icudtl.dat" -UseBasicParsing
-          Write-Host "Skia extracted successfully with icudtl.dat"
+          Write-Host "Skia extracted successfully"
 
       - name: Initialize MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -124,9 +120,8 @@ jobs:
 
       - name: Download & Extract Skia
         run: |
-          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Linux-Release-x64-libstdc++.zip
-          unzip Skia-Linux-Release-x64-libstdc++.zip -d skia
-          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/icudtl.dat -O skia/out/Release-x64/icudtl.dat
+          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-Linux-Release-x64.zip
+          unzip Skia-Linux-Release-x64.zip -d skia
 
       - name: Configure Build
         run: |
@@ -224,7 +219,6 @@ jobs:
         run: |
           wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-macOS-Release-arm64.zip
           unzip Skia-macOS-Release-arm64.zip -d skia
-          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/icudtl.dat -O skia/out/Release-arm64/icudtl.dat
 
       - name: Configure Build
         run: |
@@ -257,64 +251,9 @@ jobs:
           name: Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-arm64
           path: Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-arm64.zip
 
-  build-macos-x64:
-    name: Build macOS (Intel)
-    needs: fetch-version
-    runs-on: macos-13
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: |
-          brew install ninja
-
-      - name: Clone Aseprite Source
-        run: |
-          git clone --recursive --depth 1 --branch ${{ needs.fetch-version.outputs.version }} https://github.com/aseprite/aseprite.git
-
-      - name: Download & Extract Skia
-        run: |
-          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/Skia-macOS-Release-x64.zip
-          unzip Skia-macOS-Release-x64.zip -d skia
-          wget https://github.com/aseprite/skia/releases/download/m124-08a5439a6b/icudtl.dat -O skia/out/Release-x64/icudtl.dat
-
-      - name: Configure Build
-        run: |
-          mkdir build
-          cd build
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 \
-            -DLAF_BACKEND=skia \
-            -DSKIA_DIR=$GITHUB_WORKSPACE/skia \
-            -DSKIA_LIBRARY_DIR=$GITHUB_WORKSPACE/skia/out/Release-x64 \
-            -DENABLE_UPDATER=OFF \
-            -DENABLE_TESTS=OFF \
-            $GITHUB_WORKSPACE/aseprite
-
-      - name: Compile
-        run: |
-          cd build
-          ninja -j $(sysctl -n hw.ncpu)
-
-      - name: Create Portable Package
-        run: |
-          cd build/bin
-          echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
-          zip -r $GITHUB_WORKSPACE/Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-x64.zip Aseprite.app aseprite.ini
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-x64
-          path: Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-x64.zip
-
   create-release:
     name: Create GitHub Release
-    needs: [fetch-version, build-windows, build-linux, build-macos-arm64, build-macos-x64]
+    needs: [fetch-version, build-windows, build-linux, build-macos-arm64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -337,7 +276,6 @@ jobs:
             - Windows: Aseprite-${{ needs.fetch-version.outputs.version }}-Windows.zip
             - Linux: Aseprite-${{ needs.fetch-version.outputs.version }}-Linux.tar.gz (portable) / .deb (package)
             - macOS (Apple Silicon): Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-arm64.zip
-            - macOS (Intel): Aseprite-${{ needs.fetch-version.outputs.version }}-macOS-x64.zip
             
             **Note:** These builds are for personal use only. Please support the developers by purchasing Aseprite at https://www.aseprite.org/
           files: |
