@@ -76,12 +76,23 @@ jobs:
             -DENABLE_SCRIPTING=OFF `
             -DENABLE_UPDATER=OFF `
             -DENABLE_TESTS=OFF `
+            -DENABLE_OPENSSL=OFF `
             "$env:GITHUB_WORKSPACE\aseprite"
 
       - name: Compile
         run: |
           cd build
           ninja -j 4
+
+      - name: Check DLL Dependencies
+        shell: powershell
+        run: |
+          $deps = dumpbin /dependents build\bin\aseprite.exe
+          $deps
+          if ($deps -match "libcrypto|libssl") {
+            Write-Error "aseprite.exe depends on OpenSSL DLLs that are not shipped in the package"
+            exit 1
+          }
 
       - name: Create Portable Package
         shell: powershell
@@ -138,6 +149,7 @@ jobs:
             -DSKIA_LIBRARY_DIR=$GITHUB_WORKSPACE/skia/out/Release-x64 \
             -DENABLE_UPDATER=OFF \
             -DENABLE_TESTS=OFF \
+            -DENABLE_OPENSSL=OFF \
             $GITHUB_WORKSPACE/aseprite
 
       - name: Compile
